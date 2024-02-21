@@ -8,22 +8,23 @@ https://clayrun.notion.site/Clay-Take-Home-Assignment-e39f93736dbb4f709cf033fbe5
 At first glance, code structure/reqs seem TypeScript/React centric. My implementation will more aimed at 
 an data/API backend rather than driving a UI. 
 
-Core abstraction: Table as nested dictionary: 
+Core entity: Table as nested dictionary:
 {
-	RowID: RowDataDict(dict),
-	RowID: RowDataDict(dict),
+	1: {col: value, col: value, ...}
+	2: {col: value, col: value, ...}
 	..
 }
-RowID is in 1,2,3,4,5,.....
-RowDataDict is { colName: colValue, colName: colValue, ... }
 
-Function signatures:
+Note on time spent: 
+- The assignment document is quite lengthy, and esp. the requirements/implementation of step 3 
+was hard to follow. Therefore I timeboxed my work and focused on steps 1 and 2. 
+Full implementation requires a DAG as noted in notes below.
 
-def runWorkflowForRow(rowId: int, cellUpdate: dict[str, str]) -> rowData
-# if rowId exists, update given column; return row
-def refreshUI(rowId: int) -> None:	
-# pretty-print values in row
-
+Design decisions:
+- prod readiness: logging as good practice; requires unit testing; limited input validation
+- column names hardcoded on instance, could be provided or set on class
+- column dependencies: Main columns are handled by updateRow, one dependent column is handled by
+	a separate function. Full dependency requires a DAG and traversal, including async API calls.
 
 """
 import logging
@@ -37,24 +38,50 @@ class Table:
 			'COL_NAME_FIRST_NAME': 'First Name',
 			'COL_NAME_LAST_NAME': 'Last Name',
 			'COL_NAME_COMPANY_NAME': 'Company Name',
-			'COL_NAME_PERFORM_SEARCHL': 'Perform Search',
-			'COL_NAME_LINKEDIN_URL': 'LinkedIn URL',
-			'COL_NAME_LINKEDIN_DATA': 'LinkedIn Data',
 			'COL_NAME_G_SEARCH_INPUT': 'Google Search Input',
+			'COL_NAME_PERFORM_SEARCH': 'Perform Search',
+			'COL_NAME_LINKEDIN_URL': 'LinkedIn URL',
+			'COL_NAME_LINKEDIN_DATA': 'LinkedIn Data'
 		}
 		self.rows = {}
+
+	def _evaluateFormula(self, formula = None, inputValues: list = []) -> str:
+		if formula not in ['CONCAT', 'EXTRACT']:
+			raise ValueError('Argument error: no or wrong formula [{formula}] supplied.')
+		elif formula == 'CONCAT':
+			if len(inputValues) == 3: # DESIGN CHOICE TO NOT ALLOW >3
+				return ' '.join(inputValues)
+			else:
+				return 'MISSING INPUT'
+		elif formula == 'EXTRACT':
+			pass 
+	
 		
-	def appendRow(self, updatedValuesByColumn: dict) -> [int, dict]:
+	def appendRow(self, updatedValuesByColumn: dict) -> int:
 		new_row_id = len(self.rows) + 1
 		self.rows[new_row_id] = { colName: "" for colName in self.COLUMN_NAMES.values()}
 		self.updateRow(new_row_id, updatedValuesByColumn)
-		return [new_row_id, ]
+		return new_row_id
 
-	def updateRow(self, rowId: int, updatedValuesByColumn: dict) -> dict:
-		"""
-		updates given row with set of new column values. 
-		First validates that column names exist, logs error if dont exist
-		"""
+	
+	def updateRowForDependentColumn(self, rowId: int) -> None:
+		if rowId not in self.rows:
+			logging.error(f"Row ID {rowId} does not exist in the table.")
+			return
+		
+		row = self.rows[rowId]
+		inputValues = [
+			row[self.COLUMN_NAMES['COL_NAME_FIRST_NAME']],
+			row[self.COLUMN_NAMES['COL_NAME_LAST_NAME']],
+			row[self.COLUMN_NAMES['COL_NAME_COMPANY_NAME']]
+		]
+
+		if all(inputValues):
+			print(f'all inputValus is {all(inputValues)} and inputValues is {inputValues}')
+			self.rows[rowId]['COL_NAME_G_SEARCH_INPUT'] = self._evaluateFormula(formula='CONCAT', inputValues=inputValues)
+			self.refreshUI(rowId)
+	
+	def updateRow(self, rowId: int, updatedValuesByColumn: dict) -> list:
 		if rowId not in self.rows:
 			logging.error(f"Row ID {rowId} does not exist in the table.")
 			return
@@ -70,17 +97,13 @@ class Table:
 		
 		return updated_columns
 
-	def refreshUI(self, rowId: int, col_name: str, col_updated_value: str) -> None:
-		logging.info(f'Pringing row data:')
-		print(f"Updated: row [{rowId}]: column [{col_name}] was updated to: [{col_updated_value}]")
-		logging.info(f'Done printing row data.')
-
-
-	def evaluateFormula(formula, inputValues):
-		pass
-	# 	 Support two types of formulas
-	# 	 - string concatenation of the input values
-	# - extracting a field from a value in an array of values
+	def refreshUI(self, rowId: int, col_name: str = None, col_updated_value: str = None) -> None:
+		logging.info(f'\nPrinting row data:')
+		if col_name and col_updated_value:
+			print(f"UI Refresh: row [{rowId}]: column [{col_name}] was updated to: [{col_updated_value}]")
+		else:
+			print(f"UI Refresh: row [{rowId}]: [{self.rows[rowId]}]")
+		logging.info(f'Finished printing row data.')
 
 
 def main():
@@ -99,12 +122,10 @@ def main():
 		table.COLUMN_NAMES['COL_NAME_COMPANY_NAME']: 'Clay',
 	}
 	
-	table.appendRow(initialRowFirst)
-	table.appendRow(initialRowSecond)
-	# STATUS: added to clas: update and append, now must successful add 2 rows and some new values
-	# THEN: add new types of columns
+	id1 = table.appendRow(initialRowFirst)
+	id2 = table.appendRow(initialRowSecond)
 
-
+	table.updateRowForDependentColumn(id1)
 
 	logging.info(f'Finished running Clay Take home exercise')
 

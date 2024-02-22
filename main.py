@@ -20,8 +20,12 @@ Note on time spent:
 was hard to follow. Therefore I timeboxed my work and focused on steps 1 and 2. 
 Full implementation requires a DAG as noted in notes below.
 
+VERIFICATION:
+For verification flow, see notes under main().
+
 Design decisions:
-- prod readiness: logging as good practice; requires unit testing; limited input validation
+- prod readiness: this would be the beginning of the Table of a backend Data service/API to 
+back the front end UI; added some logging as good practice; requires unit testing; limited input validation
 - column names hardcoded on instance, could be provided or set on class
 - column dependencies: Main columns are handled by updateRow, one dependent column is handled by
 	a separate function. Full dependency requires a DAG and traversal, including async API calls.
@@ -33,7 +37,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 class Table:
 
 	def __init__(self):
-		# TODO: constructor should take alternate column names?
 		self.COLUMN_NAMES = {
 			'COL_NAME_FIRST_NAME': 'First Name',
 			'COL_NAME_LAST_NAME': 'Last Name',
@@ -50,7 +53,7 @@ class Table:
 			raise ValueError('Argument error: no or wrong formula [{formula}] supplied.')
 		elif formula == 'CONCAT':
 			if len(inputValues) == 3: # DESIGN CHOICE TO NOT ALLOW >3
-				return ' '.join(inputValues)
+				return 'linkedin.com ' + ' '.join(inputValues)
 			else:
 				return 'MISSING INPUT'
 		elif formula == 'EXTRACT':
@@ -77,8 +80,7 @@ class Table:
 		]
 
 		if all(inputValues):
-			print(f'all inputValus is {all(inputValues)} and inputValues is {inputValues}')
-			self.rows[rowId]['COL_NAME_G_SEARCH_INPUT'] = self._evaluateFormula(formula='CONCAT', inputValues=inputValues)
+			self.rows[rowId][self.COLUMN_NAMES['COL_NAME_G_SEARCH_INPUT']] = self._evaluateFormula(formula='CONCAT', inputValues=inputValues)
 			self.refreshUI(rowId)
 	
 	def updateRow(self, rowId: int, updatedValuesByColumn: dict) -> list:
@@ -95,15 +97,15 @@ class Table:
 				updated_columns.append(col_name)
 				self.refreshUI(rowId, col_name, self.rows[rowId][col_name])
 		
+		self.updateRowForDependentColumn(rowId)
+
 		return updated_columns
 
 	def refreshUI(self, rowId: int, col_name: str = None, col_updated_value: str = None) -> None:
-		logging.info(f'\nPrinting row data:')
 		if col_name and col_updated_value:
-			print(f"UI Refresh: row [{rowId}]: column [{col_name}] was updated to: [{col_updated_value}]")
+			logging.info(f"UI Refresh: ([{col_name}] updated to: [{col_updated_value}]; row [{rowId}]: [{self.rows[rowId]}] ")
 		else:
-			print(f"UI Refresh: row [{rowId}]: [{self.rows[rowId]}]")
-		logging.info(f'Finished printing row data.')
+			logging.info(f"UI Refresh: row [{rowId}]: [{self.rows[rowId]}]")
 
 
 def main():
@@ -111,6 +113,49 @@ def main():
 	
 	table = Table()
 
+	"""
+	VERIFICAITON: Verify correct flow:
+	1) Append row 1 First name, verify G_SEARCH dependent column displays 'MISSING INPUT'
+	2) Update row 1 Last name, verify two fields populated and G_SEARCH column ditto
+	3) Update row 1 Company name, verify dependent field is the concatination
+	4) Append full row 2, verify row 1 exists, and row 2 fuly populated including G_SEARCH column
+	5) Update row 1 Last name, verify row is updated correctly.
+	
+	"""
+
+	cellValue = {
+		table.COLUMN_NAMES['COL_NAME_FIRST_NAME']: 'Kareem'
+	}
+	logging.info("\033[95mExpect only first name to be populated:\033[0m")
+	id1 = table.appendRow(cellValue)
+
+	cellValue = {
+		table.COLUMN_NAMES['COL_NAME_LAST_NAME']: 'Amin',
+	}
+	logging.info("\033[95mExpect first name and last name to be populated:\033[0m")
+	table.updateRow(id1, cellValue)
+
+	cellValue = {
+		table.COLUMN_NAMES['COL_NAME_COMPANY_NAME']: 'Clay',
+	}
+	logging.info("\033[95mExpect first name, last name, company name, and `Google Search Input` to be populated:\033[0m")
+	table.updateRow(id1, cellValue)
+
+	secondRow = {
+		table.COLUMN_NAMES['COL_NAME_FIRST_NAME']: 'Jane',
+		table.COLUMN_NAMES['COL_NAME_LAST_NAME']: 'Doe',
+		table.COLUMN_NAMES['COL_NAME_COMPANY_NAME']: 'Hooli',
+	}
+	logging.info("\033[95mExpect second row to be populated, including 4 cells:\033[0m")
+	id2 = table.appendRow(secondRow)
+
+	cellValue = {
+		table.COLUMN_NAMES['COL_NAME_LAST_NAME']: 'Smith'
+	}
+	logging.info("\033[95mExpect first row last name to be updated, including dependent column:\033[0m")
+	table.updateRow(id1, cellValue)
+
+	"""old flow:
 	initialRowFirst = {
 		table.COLUMN_NAMES['COL_NAME_FIRST_NAME']: 'Kareem',
 		table.COLUMN_NAMES['COL_NAME_LAST_NAME']: 'Amin',
@@ -126,6 +171,7 @@ def main():
 	id2 = table.appendRow(initialRowSecond)
 
 	table.updateRowForDependentColumn(id1)
+	"""
 
 	logging.info(f'Finished running Clay Take home exercise')
 

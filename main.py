@@ -30,6 +30,11 @@ back the front end UI; added some logging as good practice; requires unit testin
 - column dependencies: Main columns are handled by updateRow, one dependent column is handled by
 	a separate function. Full dependency requires a DAG and traversal, including async API calls.
 
+IMPROVEMENTS:
+- using a DAG to manage columns, cells, data sources, and calculations;
+- dynamic column handling instead of hardcoding
+- increased input validation and stronger typing
+- unit testing and function refactoring to make this easier
 """
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

@@ -33,9 +33,10 @@ back the front end UI; added some logging as good practice; requires unit testin
 IMPROVEMENTS:
 - using a DAG to manage columns, cells, data sources, and calculations;
 - dynamic column handling instead of hardcoding
-- increased input validation and stronger typing
+- increased input validation and stronger typing, e.g. rowId's and column names
 - unit testing and function refactoring to make this easier
 """
+from typing import List
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -53,16 +54,17 @@ class Table:
 		}
 		self.rows = {}
 
-	def _evaluateFormula(self, formula = None, inputValues: list = []) -> str:
+	def _evaluateFormula(self, formula = None, inputValues: List[str] = []) -> str:
 		if formula not in ['CONCAT', 'EXTRACT']:
 			raise ValueError('Argument error: no or wrong formula [{formula}] supplied.')
+		elif formula == 'EXTRACT': # leaving EXTRACT in list above becuase it's intended to be implemented
+			raise ValueError('Input error: Extract formula has not yet been implemented')
 		elif formula == 'CONCAT':
 			if len(inputValues) == 3: # DESIGN CHOICE TO NOT ALLOW >3
 				return 'linkedin.com ' + ' '.join(inputValues)
 			else:
 				return 'MISSING INPUT'
-		elif formula == 'EXTRACT':
-			pass 
+		return '' 
 	
 		
 	def appendRow(self, updatedValuesByColumn: dict) -> int:
@@ -90,8 +92,7 @@ class Table:
 	
 	def updateRow(self, rowId: int, updatedValuesByColumn: dict) -> list:
 		if rowId not in self.rows:
-			logging.error(f"Row ID {rowId} does not exist in the table.")
-			return
+			raise ValueError(f"Row ID {rowId} does not exist in the table.")
 
 		updated_columns = []
 		for col_name in updatedValuesByColumn.keys():
@@ -111,7 +112,6 @@ class Table:
 			logging.info(f"UI Refresh: ([{col_name}] updated to: [{col_updated_value}]; row [{rowId}]: [{self.rows[rowId]}] ")
 		else:
 			logging.info(f"UI Refresh: row [{rowId}]: [{self.rows[rowId]}]")
-
 
 def main():
 	logging.info(f'Starting Clay Take home exercise')
